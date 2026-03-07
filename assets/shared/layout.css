@@ -1,0 +1,170 @@
+/* ═══════════════════════════════════════════════════════════
+   shared/layout.css — Body, container, nav fixe, sections,
+   scroll-reveal, card générique.
+   Dépend de : shared/tokens.css
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Body & Container ────────────────────────────────────── */
+body {
+  font-family:
+    "Inter",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background-color: var(--bg);
+  min-height: 100vh;
+  padding-top: calc(var(--nav-h) + 36px);
+  padding-bottom: 60px;
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 1260px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── Navigation fixe ─────────────────────────────────────── */
+.site-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--nav-h);
+  background: rgba(255, 255, 255, 0.94);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  z-index: 100;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+}
+
+.nav-brand {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #4f46e5 0%, #0ea5e9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.nav-links a {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  transition:
+    color var(--dur),
+    background var(--dur);
+}
+
+.nav-links a:hover {
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.nav-links a.active {
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+/* ── Scroll reveal ───────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateX(36px);
+  transition:
+    opacity 620ms var(--ease),
+    transform 620ms var(--ease);
+}
+
+.reveal.reveal-left {
+  transform: translateX(-28px);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateX(0) !important;
+}
+
+/* ── Sections de page ────────────────────────────────────── */
+.page-section {
+  margin-bottom: 36px;
+}
+
+.sec-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  cursor: default;
+}
+
+.sec-arrow {
+  font-size: 1.1rem;
+  color: var(--accent);
+  font-weight: 800;
+  flex-shrink: 0;
+  display: inline-block;
+  transition: transform 300ms var(--ease);
+}
+
+.page-section:hover .sec-arrow {
+  transform: translateX(5px);
+}
+
+.sec-title {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--text-heading);
+  letter-spacing: -0.025em;
+}
+
+.sec-body {
+  transition-delay: 80ms;
+}
+
+/* ── Carte générique ─────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  box-shadow: var(--shadow);
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  body {
+    padding-top: calc(var(--nav-h) + 20px);
+    padding-bottom: 40px;
+  }
+
+  .container {
+    padding: 0 14px;
+  }
+
+  .nav-links {
+    display: none;
+  }
+
+  .sec-title {
+    font-size: 1.25rem;
+  }
+}

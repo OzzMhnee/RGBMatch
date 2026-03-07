@@ -1,0 +1,106 @@
+/* ═══════════════════════════════════════════════════════════
+   index/setup.css — Section "Initialisation des images"
+   (formulaire de setup Unsplash, état courant, note).
+   Dépend de : shared/tokens.css
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Note / texte secondaire ─────────────────────────────── */
+.note {
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.note strong {
+  color: var(--text);
+}
+
+/* ── Zone setup ──────────────────────────────────────────── */
+.setup-form {
+  margin-top: 10px;
+}
+.setup-field {
+  margin-top: 12px;
+}
+
+/* ── Indicateur d'état courant ───────────────────────────── */
+.setup-state-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  margin-bottom: 4px;
+}
+
+.state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+}
+
+.state-badge.ok {
+  background: rgba(22, 163, 74, 0.07);
+  border-color: rgba(22, 163, 74, 0.25);
+  color: #15803d;
+}
+
+.state-badge.missing {
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.2);
+  color: #dc2626;
+}
+
+.state-badge .badge-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* ── Champs de formulaire ────────────────────────────────── */
+.setup-input {
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition:
+    border-color var(--dur),
+    box-shadow var(--dur);
+}
+
+.setup-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.setup-count {
+  width: 220px;
+}
+.setup-query {
+  width: min(520px, 100%);
+}
+
+/* ── Placeholder "aucune image d'origine" ────────────────── */
+.origin-missing {
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  color: var(--text-dim);
+  font-size: 0.92rem;
+  font-weight: 500;
+}

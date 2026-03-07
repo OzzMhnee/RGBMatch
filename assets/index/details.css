@@ -1,0 +1,197 @@
+/* ═══════════════════════════════════════════════════════════
+   index/details.css — Section "Détails RAM + temps" :
+   accordéon par image, tableau RAM, barre de progression,
+   méta de l'image courante.
+   Dépend de : shared/tokens.css
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Wrap des accordéons ─────────────────────────────────── */
+.details-wrap {
+  margin-top: 16px;
+}
+
+/* ── Tableau RAM ─────────────────────────────────────────── */
+.table-wrap {
+  overflow-x: auto;
+  margin-top: 14px;
+}
+
+.ram-table {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: collapse;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.ram-table th:nth-child(1),
+.ram-table td:nth-child(1) {
+  width: 140px;
+}
+
+/* Colonnes numériques (2→6) : pas de retour à la ligne */
+.ram-table th:nth-child(2),
+.ram-table td:nth-child(2),
+.ram-table th:nth-child(3),
+.ram-table td:nth-child(3),
+.ram-table th:nth-child(4),
+.ram-table td:nth-child(4),
+.ram-table th:nth-child(5),
+.ram-table td:nth-child(5),
+.ram-table th:nth-child(6),
+.ram-table td:nth-child(6) {
+  white-space: nowrap;
+}
+
+/* Colonne 7 : Explication */
+.ram-table th:nth-child(7),
+.ram-table td:nth-child(7) {
+  min-width: 220px;
+}
+
+.ram-table th,
+.ram-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.ram-table th {
+  background: var(--bg-surface);
+  color: var(--text-heading);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ram-table td {
+  color: var(--text-muted);
+}
+
+.ram-table tbody tr {
+  transition: background var(--dur);
+}
+.ram-table tbody tr:hover {
+  background: rgba(79, 70, 229, 0.03);
+}
+
+/* ── Accordéon par image ─────────────────────────────────── */
+.img-details {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-top: 14px;
+  transition:
+    opacity 400ms ease,
+    transform 400ms var(--ease);
+}
+
+.img-details.detail-entering {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.img-details summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+}
+
+.img-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary-title {
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.summary-meta {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* ── Barre de progression globale ────────────────────────── */
+.progress-bar-outer {
+  width: 100%;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+}
+
+.progress-bar-inner {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  border-radius: 999px;
+  transition: width 400ms var(--ease);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* ── Couleurs delta (positif = alloc, négatif = libéré) ───── */
+.ram-table td.delta-pos {
+  color: var(--red);
+  font-weight: 600;
+}
+
+.ram-table td.delta-neg {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.ram-table td.delta-zero {
+  color: var(--text-dim);
+}
+
+/* ── Colonne Cumulé used ─────────────────────────────────── */
+.ram-table td.cumul-col {
+  font-weight: 700;
+  border-left: 2px solid var(--border);
+}
+
+/* ── Colonne Explication ─────────────────────────────────── */
+.ram-table td.explain-col {
+  color: var(--text-muted);
+}
+
+/* ── Bilan RAM (tfoot) ───────────────────────────────────── */
+.ram-table tfoot .bilan-row .bilan-cell {
+  padding: 10px 14px;
+  font-weight: 700;
+  background: var(--bg-surface);
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+  text-align: left;
+}
+
+.ram-table tfoot .bilan-cell.delta-pos {
+  color: var(--red);
+}
+
+.ram-table tfoot .bilan-cell.delta-neg {
+  color: var(--green);
+}
+
+/* ── Méta image courante ─────────────────────────────────── */
+.current-meta {
+  margin-top: 10px;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.83rem;
+  word-break: break-all;
+  font-family: "Fira Code", "Cascadia Code", "Consolas", monospace;
+}

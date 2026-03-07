@@ -2,3 +2,5 @@
 
 # Données générées (images téléchargées, résultats, cache)
 storage/
+
+AUDIT_SCORE.md

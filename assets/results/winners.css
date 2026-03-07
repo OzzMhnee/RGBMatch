@@ -1,0 +1,229 @@
+/* ═══════════════════════════════════════════════════════════
+   results/winners.css — Grille Top 3 de la page de résultats
+   (cartes gagnantes, badges de rang, valeurs RGB, différences).
+   Dépend de : shared/tokens.css
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Section résultats ───────────────────────────────────── */
+.results-section {
+  margin-top: 8px;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-heading);
+  margin-bottom: 28px;
+  letter-spacing: -0.025em;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-title::before {
+  content: "→";
+  color: var(--accent);
+  font-weight: 800;
+}
+
+/* ── Grille des cartes ───────────────────────────────────── */
+.winners-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 22px;
+}
+
+/* ── Carte gagnante ──────────────────────────────────────── */
+.winner-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  position: relative;
+  transition:
+    transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    border-color var(--dur);
+}
+
+.winner-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  border-color: var(--border-hover);
+}
+
+/* Bordure colorée par rang */
+.winner-card:nth-child(1) {
+  border-top: 3px solid #f59e0b;
+}
+.winner-card:nth-child(2) {
+  border-top: 3px solid #94a3b8;
+}
+.winner-card:nth-child(3) {
+  border-top: 3px solid #b45309;
+}
+
+/* ── Badge de rang ───────────────────────────────────────── */
+.rank-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+  z-index: 10;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.rank-1 {
+  background: linear-gradient(135deg, #f59e0b, #fcd34d);
+  color: #78350f;
+}
+.rank-2 {
+  background: linear-gradient(135deg, #94a3b8, #cbd5e1);
+  color: #1e293b;
+}
+.rank-3 {
+  background: linear-gradient(135deg, #b45309, #d97706);
+  color: #fff7ed;
+}
+
+/* ── Image & infos de la carte ───────────────────────────── */
+.winner-image {
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  display: block;
+}
+
+.winner-info {
+  padding: 20px;
+}
+
+.similarity-score {
+  font-size: 2.1rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #4f46e5 0%, #0ea5e9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+}
+
+.filename {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+  word-break: break-all;
+  font-family: "Fira Code", "Cascadia Code", "Consolas", monospace;
+}
+
+/* ── Valeurs RGB en grille ───────────────────────────────── */
+.rgb-values {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.rgb-value {
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.88rem;
+  border: 1px solid var(--border);
+}
+
+.rgb-value.red {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
+}
+.rgb-value.green {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+.rgb-value.blue {
+  background: #eff6ff;
+  color: #3730a3;
+  border-color: #bfdbfe;
+}
+
+/* ── Différences RGB ─────────────────────────────────────── */
+.differences {
+  background: var(--bg-surface);
+  padding: 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.diff-label {
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.diff-values {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.diff-values strong {
+  color: var(--text-heading);
+}
+
+/* ── Info résumé du run (nb images analysées) ────────────── */
+.run-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.run-summary strong {
+  color: var(--text-heading);
+  font-weight: 700;
+}
+
+.run-summary .run-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .winners-grid {
+    grid-template-columns: 1fr;
+  }
+}

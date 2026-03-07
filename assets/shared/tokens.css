@@ -1,0 +1,58 @@
+/* ═══════════════════════════════════════════════════════════
+   shared/tokens.css — Reset + design tokens RGBMatch
+   Source unique de vérité pour toutes les variables CSS.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Reset ───────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ── Design tokens ───────────────────────────────────────── */
+:root {
+  /* Fonds */
+  --bg: #f0f2f8;
+  --bg-surface: #f8f9fc;
+  --bg-card: #ffffff;
+
+  /* Bordures */
+  --border: rgba(0, 0, 0, 0.07);
+  --border-hover: rgba(79, 70, 229, 0.4);
+  --glass-border: rgba(79, 70, 229, 0.14);
+
+  /* Texte */
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  --text-heading: #0f172a;
+
+  /* Couleurs d'accent */
+  --accent: #4f46e5;
+  --accent-glow: rgba(79, 70, 229, 0.15);
+  --green: #16a34a;
+  --green-glow: rgba(22, 163, 74, 0.18);
+  --red: #dc2626;
+  --red-glow: rgba(220, 38, 38, 0.18);
+  --amber: #d97706;
+  --amber-glow: rgba(217, 119, 6, 0.18);
+  --cyan: #0284c7;
+
+  /* Géométrie */
+  --radius-sm: 5px;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --shadow: 0 1px 6px rgba(0, 0, 0, 0.07), 0 4px 16px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 4px 28px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
+  --shadow-glow: 0 0 24px rgba(79, 70, 229, 0.14);
+
+  /* Navigation */
+  --nav-h: 60px;
+
+  /* Animation */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur: 240ms;
+}

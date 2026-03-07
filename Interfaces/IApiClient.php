@@ -2,7 +2,16 @@
 /**
  * Interface pour les clients API
  * Convention: Prefix I pour Interface
+ *
+ * @author  Margot Hourdillé
+ * @project RGBMatch — Challenge Firstruner
+ * @version 1.0.0
+ * @date    2026-03-06
+ * @update  2026-03-06
  */
+
+namespace RGBMatch\Interfaces;
+
 interface IApiClient
 {
     /**

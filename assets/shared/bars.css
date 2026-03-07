@@ -1,0 +1,52 @@
+/* ═══════════════════════════════════════════════════════════
+   shared/bars.css — Barres RGB (résultats + calcul en direct)
+   Dépend de : shared/tokens.css
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Barre RGB (usage résultats: avec label) ─────────────── */
+.rgb-bar {
+  margin: 14px 0;
+}
+
+.rgb-label {
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+/* ── Conteneur + remplissage générique ───────────────────── */
+.bar-container {
+  height: 22px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--border);
+}
+
+.bar-fill {
+  height: 100%;
+  transition: width 820ms var(--ease);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+  color: white;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Couleurs de remplissage ─────────────────────────────── */
+.bar-red {
+  background: linear-gradient(90deg, #b91c1c, #ef4444);
+}
+.bar-green {
+  background: linear-gradient(90deg, #15803d, #22c55e);
+}
+.bar-blue {
+  background: linear-gradient(90deg, #3730a3, #6366f1);
+}

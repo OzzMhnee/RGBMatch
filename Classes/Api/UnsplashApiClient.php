@@ -3,7 +3,20 @@
  * Client pour l'API Unsplash
  * Implémente IApiClient
  * Principe: SRP - Responsable uniquement de la communication avec Unsplash
+ *
+ * @author  Margot Hourdillé
+ * @project RGBMatch — Challenge Firstruner
+ * @version 1.0.0
+ * @date    2026-03-06
+ * @update  2026-03-06
  */
+
+namespace RGBMatch\Api;
+
+use Exception;
+use RuntimeException;
+use RGBMatch\Interfaces\IApiClient;
+
 final class UnsplashApiClient implements IApiClient
 {
     /** @var string */
@@ -12,12 +25,22 @@ final class UnsplashApiClient implements IApiClient
     private $apiUrl;
     /** @var string */
     private $downloadPath;
+
+    /** @var string 'stream'|'memory' */
+    private $downloadMode;
     
     public function __construct(string $accessKey, string $apiUrl, string $downloadPath)
     {
         $this->accessKey = $accessKey;
         $this->apiUrl = $apiUrl;
         $this->downloadPath = $downloadPath;
+
+        // Mode de téléchargement:
+        // - stream : écrit directement dans un fichier (RAM minimale)
+        // - memory : télécharge en string puis file_put_contents (utile pour démo)
+        $mode = $_ENV['UNSPLASH_DOWNLOAD_MODE'] ?? getenv('UNSPLASH_DOWNLOAD_MODE') ?? 'stream';
+        $mode = strtolower(trim((string) $mode));
+        $this->downloadMode = in_array($mode, ['stream', 'memory'], true) ? $mode : 'stream';
         
         // Création du dossier de téléchargement s'il n'existe pas
         if (!is_dir($this->downloadPath)) {
@@ -54,14 +77,20 @@ final class UnsplashApiClient implements IApiClient
                 }
 
                 $imageUrl = $photo['urls']['regular'];
-                $imageData = $this->downloadBinary($imageUrl, $sslVerifyEnabled);
-                if ($imageData === null) {
-                    continue;
-                }
-
                 $filename = $this->downloadPath . "/image_{$i}_" . uniqid() . ".jpg";
-                file_put_contents($filename, $imageData);
-                unset($imageData);
+
+                if ($this->downloadMode === 'memory') {
+                    $imageData = $this->downloadBinary($imageUrl, $sslVerifyEnabled);
+                    if ($imageData === null) {
+                        continue;
+                    }
+                    file_put_contents($filename, $imageData);
+                    unset($imageData);
+                } else {
+                    if (!$this->downloadToFile($imageUrl, $filename, $sslVerifyEnabled)) {
+                        continue;
+                    }
+                }
 
                 $downloadedPaths[] = $filename;
 
@@ -115,19 +144,33 @@ final class UnsplashApiClient implements IApiClient
             try {
                 if (is_array($photo) && isset($photo['urls']['regular'])) {
                     $imageUrl = $photo['urls']['regular'];
-                    $imageData = $this->downloadBinary($imageUrl, $sslVerifyEnabled);
-                    if ($imageData !== null) {
-                        $filename = $this->downloadPath . "/image_{$i}_" . uniqid() . ".jpg";
-                        file_put_contents($filename, $imageData);
-                        if ($showFileSize) {
+                    $filename = $this->downloadPath . "/image_{$i}_" . uniqid() . ".jpg";
+
+                    $ok = false;
+                    $bytes = 0;
+                    if ($this->downloadMode === 'memory') {
+                        $imageData = $this->downloadBinary($imageUrl, $sslVerifyEnabled);
+                        if ($imageData !== null) {
+                            file_put_contents($filename, $imageData);
                             $bytes = strlen($imageData);
+                            unset($imageData);
+                            $ok = true;
+                        }
+                    } else {
+                        $ok = $this->downloadToFile($imageUrl, $filename, $sslVerifyEnabled);
+                        if ($ok && $showFileSize && is_file($filename)) {
+                            $bytes = (int) filesize($filename);
+                        }
+                    }
+
+                    if ($ok) {
+                        if ($showFileSize && $bytes > 0) {
                             if ($bytes >= 1024 * 1024) {
                                 $sizeInfo = ' - ' . number_format($bytes / (1024 * 1024), 2) . ' Mo';
                             } else {
                                 $sizeInfo = ' - ' . (int) round($bytes / 1024) . ' Ko';
                             }
                         }
-                        unset($imageData);
                         $downloadedPaths[] = $filename;
                     }
                 }
@@ -253,18 +296,73 @@ final class UnsplashApiClient implements IApiClient
         
         // Téléchargement de l'image à partir de l'URL obtenue
         $imageUrl = $data['urls']['regular'];
-        $imageData = $this->downloadBinary($imageUrl, $sslVerifyEnabled);
-        if ($imageData === null) {
-            return null;
+        $filename = $this->downloadPath . "/image_{$index}_" . uniqid() . ".jpg";
+
+        if ($this->downloadMode === 'memory') {
+            $imageData = $this->downloadBinary($imageUrl, $sslVerifyEnabled);
+            if ($imageData === null) {
+                return null;
+            }
+            file_put_contents($filename, $imageData);
+            unset($imageData);
+        } else {
+            if (!$this->downloadToFile($imageUrl, $filename, $sslVerifyEnabled)) {
+                return null;
+            }
         }
         
-        $filename = $this->downloadPath . "/image_{$index}_" . uniqid() . ".jpg";
-        file_put_contents($filename, $imageData);
-        
-        // Libération de la mémoire
-        unset($imageData);
-        
         return $filename;
+    }
+
+    /**
+     * Télécharge un binaire directement dans un fichier pour minimiser la RAM.
+     *
+     * @return bool true si OK, false sinon
+     */
+    private function downloadToFile(string $url, string $destFile, bool $sslVerifyEnabled): bool
+    {
+        $fp = @fopen($destFile, 'wb');
+        if ($fp === false) {
+            return false;
+        }
+
+        $ch = curl_init();
+        // IMPORTANT:
+        // En environnement web (Apache/FastCGI), certaines configs font que le corps
+        // de réponse de cURL peut "fuiter" vers la sortie HTTP si on ne force pas
+        // explicitement l'écriture. On utilise donc CURLOPT_WRITEFUNCTION pour écrire
+        // dans le fichier et garantir qu'aucun octet binaire (JPEG) n'est echo.
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_HEADER => false,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 60,
+            CURLOPT_SSL_VERIFYPEER => $sslVerifyEnabled,
+            CURLOPT_SSL_VERIFYHOST => $sslVerifyEnabled ? 2 : 0,
+            CURLOPT_HTTPHEADER => [
+                'User-Agent: MatchRGB/1.0'
+            ],
+        ]);
+
+        curl_setopt($ch, CURLOPT_WRITEFUNCTION, static function ($curl, string $data) use ($fp): int {
+            $written = fwrite($fp, $data);
+            return ($written === false) ? 0 : (int) $written;
+        });
+
+        $ok = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $errNo = curl_errno($ch);
+        curl_close($ch);
+        fclose($fp);
+
+        if ($ok === false || $errNo !== 0 || $httpCode < 200 || $httpCode >= 300) {
+            @unlink($destFile);
+            return false;
+        }
+
+        return true;
     }
 
     /**

@@ -1,0 +1,64 @@
+/* ═══════════════════════════════════════════════════════════
+   shared/origin.css — Section "image de référence" partagée
+   (utilisée sur index et results).
+   Dépend de : shared/tokens.css
+   ═══════════════════════════════════════════════════════════ */
+
+.origin-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  box-shadow: var(--shadow);
+}
+
+.origin-content {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.origin-image {
+  flex: 0 0 300px;
+}
+
+.origin-image img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  transition:
+    transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+.origin-image img:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+}
+
+.origin-info {
+  flex: 1;
+}
+
+.origin-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-heading);
+  margin-bottom: 18px;
+  letter-spacing: -0.01em;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .origin-content {
+    flex-direction: column;
+  }
+
+  .origin-image {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 320px;
+  }
+}
