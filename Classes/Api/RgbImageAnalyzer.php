@@ -55,47 +55,16 @@ final class RgbImageAnalyzer implements IInstrumentedImageAnalyzer
      */
     public function analyze(string $imagePath): CRgbPercentage
     {
-        if (!file_exists($imagePath)) {
-            throw new InvalidArgumentException("L'image n'existe pas : {$imagePath}");
-        }
-        
-        $type = EImageType::fromPath($imagePath);
-        if ($type === null) {
-            throw new InvalidArgumentException("Type d'image non supporté");
-        }
-        
-        $loadedImage = $this->loader->load($imagePath, $type);
-
-        if ($loadedImage === false) {
-            throw new RuntimeException("Impossible de charger l'image : {$imagePath}");
-        }
+        $type = $this->requireSupportedType($imagePath);
+        $loadedImage = $this->loadImageOrFail($imagePath, $type);
 
         try {
-            $workingImage = $loadedImage;
             $loadedImageToFree = $loadedImage;
 
-            // Option pédagogique: réduire la taille de travail.
-            // IMPORTANT: le chargement JPEG/PNG décompresse d'abord l'image en RAM à sa taille réelle.
-            // Le downscale ne réduit donc pas le pic au moment du load, mais peut réduire la RAM
-            // pendant le calcul et accélérer le traitement.
-            if ($this->maxDimension > 0 && function_exists('imagescale')) {
-                $w = imagesx($workingImage);
-                $h = imagesy($workingImage);
-                $maxSide = max($w, $h);
-
-                if ($maxSide > $this->maxDimension) {
-                    $ratio = $this->maxDimension / $maxSide;
-                    $newW = max(1, (int) round($w * $ratio));
-                    $newH = max(1, (int) round($h * $ratio));
-
-                    $scaled = @imagescale($workingImage, $newW, $newH);
-                    if ($scaled !== false) {
-                        // On libère l'original dès que possible pour limiter la RAM "steady-state".
-                        $this->loader->free($workingImage);
-                        $loadedImageToFree = null;
-                        $workingImage = $scaled;
-                    }
-                }
+            $downscale = $this->downscaleImage($loadedImage);
+            $workingImage = $downscale['image'];
+            if ($downscale['replacedOriginal']) {
+                $loadedImageToFree = null;
             }
 
             return $this->calculateRgbPercentages($workingImage);
@@ -123,14 +92,7 @@ final class RgbImageAnalyzer implements IInstrumentedImageAnalyzer
      */
     public function analyzeWithStatsKeepGd(string $imagePath): array
     {
-        if (!file_exists($imagePath)) {
-            throw new InvalidArgumentException("L'image n'existe pas : {$imagePath}");
-        }
-
-        $type = EImageType::fromPath($imagePath);
-        if ($type === null) {
-            throw new InvalidArgumentException('Type d\'image non supporté');
-        }
+        $type = $this->requireSupportedType($imagePath);
 
         $stats = [
             'loadSeconds'      => 0.0,
@@ -155,50 +117,18 @@ final class RgbImageAnalyzer implements IInstrumentedImageAnalyzer
         $stats['snaps']['beforeLoad'] = $snap();
 
         $t = microtime(true);
-        $loadedImage = $this->loader->load($imagePath, $type);
+        $loadedImage = $this->loadImageOrFail($imagePath, $type);
         $stats['loadSeconds'] = microtime(true) - $t;
         $stats['snaps']['afterLoad'] = $snap();
 
-        if ($loadedImage === false) {
-            throw new RuntimeException("Impossible de charger l'image : {$imagePath}");
-        }
-
-        $workingImage = $loadedImage;
-
-        $stats['originalW'] = (int) imagesx($workingImage);
-        $stats['originalH'] = (int) imagesy($workingImage);
-        $stats['workW'] = $stats['originalW'];
-        $stats['workH'] = $stats['originalH'];
-
-        // Option pédagogique: réduire la taille de travail.
-        // IMPORTANT: le chargement JPEG/PNG décompresse d'abord l'image en RAM à sa taille réelle.
-        // Le downscale ne réduit donc pas le pic au moment du load, mais peut réduire la RAM
-        // pendant le calcul et accélérer le traitement.
-        if ($this->maxDimension > 0 && function_exists('imagescale')) {
-            $w = $stats['originalW'];
-            $h = $stats['originalH'];
-            $maxSide = max($w, $h);
-
-            if ($maxSide > $this->maxDimension) {
-                $ratio = $this->maxDimension / $maxSide;
-                $newW = max(1, (int) round($w * $ratio));
-                $newH = max(1, (int) round($h * $ratio));
-
-                $tDown = microtime(true);
-                $scaled = @imagescale($workingImage, $newW, $newH);
-                $stats['downscaleSeconds'] = microtime(true) - $tDown;
-
-                if ($scaled !== false) {
-                    $stats['didDownscale'] = true;
-                    $stats['workW'] = (int) imagesx($scaled);
-                    $stats['workH'] = (int) imagesy($scaled);
-
-                    // Libère l'original dès que possible ; on travaillera sur la version réduite.
-                    $this->loader->free($workingImage);
-                    $workingImage = $scaled;
-                }
-            }
-        }
+        $downscale = $this->downscaleImage($loadedImage);
+        $workingImage = $downscale['image'];
+        $stats['originalW'] = $downscale['originalW'];
+        $stats['originalH'] = $downscale['originalH'];
+        $stats['workW'] = $downscale['workW'];
+        $stats['workH'] = $downscale['workH'];
+        $stats['didDownscale'] = $downscale['didDownscale'];
+        $stats['downscaleSeconds'] = $downscale['downscaleSeconds'];
 
         $stats['snaps']['afterDownscale'] = $stats['didDownscale']
             ? $snap()
@@ -263,6 +193,83 @@ final class RgbImageAnalyzer implements IInstrumentedImageAnalyzer
         ];
 
         return ['rgb' => $rgb, 'stats' => $stats];
+    }
+
+    private function requireSupportedType(string $imagePath): EImageType
+    {
+        if (!file_exists($imagePath)) {
+            throw new InvalidArgumentException("L'image n'existe pas : {$imagePath}");
+        }
+
+        $type = EImageType::fromPath($imagePath);
+        if ($type === null) {
+            throw new InvalidArgumentException('Type d\'image non supporté');
+        }
+
+        return $type;
+    }
+
+    /**
+     * @return \GdImage|resource
+     */
+    private function loadImageOrFail(string $imagePath, EImageType $type)
+    {
+        $loadedImage = $this->loader->load($imagePath, $type);
+        if ($loadedImage === false) {
+            throw new RuntimeException("Impossible de charger l'image : {$imagePath}");
+        }
+
+        return $loadedImage;
+    }
+
+    /**
+     * @param \GdImage|resource $image
+     * @return array{image:mixed,didDownscale:bool,replacedOriginal:bool,originalW:int,originalH:int,workW:int,workH:int,downscaleSeconds:float}
+     */
+    private function downscaleImage($image): array
+    {
+        $originalW = (int) imagesx($image);
+        $originalH = (int) imagesy($image);
+        $result = [
+            'image' => $image,
+            'didDownscale' => false,
+            'replacedOriginal' => false,
+            'originalW' => $originalW,
+            'originalH' => $originalH,
+            'workW' => $originalW,
+            'workH' => $originalH,
+            'downscaleSeconds' => 0.0,
+        ];
+
+        if ($this->maxDimension <= 0 || !function_exists('imagescale')) {
+            return $result;
+        }
+
+        $maxSide = max($originalW, $originalH);
+        if ($maxSide <= $this->maxDimension) {
+            return $result;
+        }
+
+        $ratio = $this->maxDimension / $maxSide;
+        $newW = max(1, (int) round($originalW * $ratio));
+        $newH = max(1, (int) round($originalH * $ratio));
+
+        $tDown = microtime(true);
+        $scaled = @imagescale($image, $newW, $newH);
+        $result['downscaleSeconds'] = microtime(true) - $tDown;
+
+        if ($scaled === false) {
+            return $result;
+        }
+
+        $this->loader->free($image);
+        $result['image'] = $scaled;
+        $result['didDownscale'] = true;
+        $result['replacedOriginal'] = true;
+        $result['workW'] = (int) imagesx($scaled);
+        $result['workH'] = (int) imagesy($scaled);
+
+        return $result;
     }
     
     /**

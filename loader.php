@@ -28,6 +28,9 @@ spl_autoload_register(static function (string $className): void {
 		'RGBMatch\\Interfaces\\IComparisonResultBuilder' 		 => 'Interfaces/IComparisonResultBuilder.php',
 		'RGBMatch\\Interfaces\\IComparisonResultRanker' 		 => 'Interfaces/IComparisonResultRanker.php',
 		'RGBMatch\\Interfaces\\IInstrumentedImageAnalyzer' 	 => 'Interfaces/IInstrumentedImageAnalyzer.php',
+		'RGBMatch\\Interfaces\\IImageReaderRepository'      => 'Interfaces/IImageReaderRepository.php',
+		'RGBMatch\\Interfaces\\IJsonFileStore'             => 'Interfaces/IJsonFileStore.php',
+		'RGBMatch\\Interfaces\\IMeasurementWorkerRunner' 	 => 'Interfaces/IMeasurementWorkerRunner.php',
 
 		// Enumerations
 		'RGBMatch\\Enumerations\\EImageType' 								 => 'Enumerations/EImageType.php',
@@ -35,6 +38,13 @@ spl_autoload_register(static function (string $className): void {
 		// Config
 		'RGBMatch\\Config\\EnvFileLoader'       						 => 'Classes/Config/EnvFileLoader.php',
 		'RGBMatch\\Config\\DirectoryInitializer' 						 => 'Classes/Config/DirectoryInitializer.php',
+
+		// IO
+		'RGBMatch\\IO\\LockedFileSession' 					 => 'Classes/IO/LockedFileSession.php',
+		'RGBMatch\\IO\\LockedJsonFileStore' 			 => 'Classes/IO/LockedJsonFileStore.php',
+
+		// Security
+		'RGBMatch\\Security\\RequestThrottle' 		 => 'Classes/Security/RequestThrottle.php',
 
 		// Métier — Value Objects (prefix C)
 		'RGBMatch\\Metier\\CRgbPercentage'   								 => 'Classes/Metier/CRgbPercentage.php',
@@ -58,14 +68,19 @@ spl_autoload_register(static function (string $className): void {
 		'RGBMatch\\Application\\ComparisonResultRanker' 		 => 'Classes/Application/ComparisonResultRanker.php',
 		'RGBMatch\\Application\\ServiceFactory'         		 => 'Classes/Application/ServiceFactory.php',
 		'RGBMatch\\Application\\ConsoleRenderer'        		 => 'Classes/Application/ConsoleRenderer.php',
+		'RGBMatch\\Application\\PublicPageLayoutRenderer' => 'Classes/Application/PublicPageLayoutRenderer.php',
 		'RGBMatch\\Application\\ResultsPageRenderer'    		 => 'Classes/Application/ResultsPageRenderer.php',
 		'RGBMatch\\Application\\IndexVisualPageRenderer' 		 => 'Classes/Application/IndexVisualPageRenderer.php',
+		'RGBMatch\Application\SetupPageRenderer'      		 => 'Classes/Application/SetupPageRenderer.php',
+		'RGBMatch\\Application\\SetupService'      		 => 'Classes/Application/SetupService.php',
 		'RGBMatch\\Application\\AnalysisOrchestrator'   		 => 'Classes/Application/AnalysisOrchestrator.php',
 		'RGBMatch\\Application\\IsolatedMeasurementPayloadProvider' => 'Classes/Application/IsolatedMeasurementPayloadProvider.php',
 		'RGBMatch\\Application\\InstrumentedStep'       		 => 'Classes/Application/InstrumentedStep.php',
+		'RGBMatch\\Application\\LocalHttpMeasurementWorkerRunner' => 'Classes/Application/LocalHttpMeasurementWorkerRunner.php',
 
 		// API
-		'RGBMatch\\Api\\GdImageLoader'   										 => 'Classes/Api/GdImageLoader.php',
+		'RGBMatch\\Api\\GdImageReaderRepository' 			 => 'Classes/Api/GdImageReaderRepository.php',
+		'RGBMatch\\Api\\GdImageLoader'   								 => 'Classes/Api/GdImageLoader.php',
 		'RGBMatch\\Api\\RgbImageAnalyzer' 									 => 'Classes/Api/RgbImageAnalyzer.php',
 		'RGBMatch\\Api\\UnsplashApiClient' 									 => 'Classes/Api/UnsplashApiClient.php',
 	];

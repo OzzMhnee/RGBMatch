@@ -2,11 +2,13 @@
 /**
  * Renderer HTML pour la page de résultats.
  *
+ * © 2026 Tous droits réservés.
+ *
  * @author  Margot Hourdillé
  * @project RGBMatch — Challenge Firstruner
- * @version 1.0.0
+ * @version 2.0.0
  * @date    2026-03-06
- * @update  2026-03-06
+ * @update  2026-03-11
  */
 
 namespace RGBMatch\Application;
@@ -24,37 +26,10 @@ final class ResultsPageRenderer
      */
     public function render(string $baseUrlPath, string $originPath, CImageData $originImage, array $topResults, int $totalAnalyzed = 0): string
     {
+        $layout = new PublicPageLayoutRenderer();
+
         ob_start();
         ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RGBMatch — Résultats</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= $baseUrlPath ?>/assets/shared/tokens.css">
-    <link rel="stylesheet" href="<?= $baseUrlPath ?>/assets/shared/layout.css">
-    <link rel="stylesheet" href="<?= $baseUrlPath ?>/assets/shared/origin.css">
-    <link rel="stylesheet" href="<?= $baseUrlPath ?>/assets/shared/bars.css">
-    <link rel="stylesheet" href="<?= $baseUrlPath ?>/assets/shared/footer.css">
-    <link rel="stylesheet" href="<?= $baseUrlPath ?>/assets/results/winners.css">
-</head>
-<body>
-
-    <!-- ── Barre de navigation fixe ───────────────────────── -->
-    <nav class="site-nav">
-        <a class="nav-brand" href="<?= htmlspecialchars($baseUrlPath, ENT_QUOTES, 'UTF-8') ?>/public/index.php">RGBMatch</a>
-        <div class="nav-links">
-            <a href="<?= htmlspecialchars($baseUrlPath, ENT_QUOTES, 'UTF-8') ?>/public/index.php">Analyse</a>
-            <a href="<?= htmlspecialchars($baseUrlPath, ENT_QUOTES, 'UTF-8') ?>/public/results.php" class="active">Résultats</a>
-        </div>
-    </nav>
-
-    <div class="container">
-
         <!-- ── Section : image de référence ───────────────── -->
         <div class="page-section">
             <div class="sec-header reveal reveal-left">
@@ -182,40 +157,26 @@ final class ResultsPageRenderer
                 </div>
             </div>
         </div>
-
-        <!-- ── Footer ─────────────────────────────────────── -->
-        <footer class="site-footer">
-            <div>
-                Réalisé par
-                <a href="https://github.com/OzzMhnee" target="_blank" rel="noopener">OzzMhnee (Margot Hourdillé)</a>
-                <span class="footer-sep">•</span>
-                Challenge proposé par
-                <a href="https://gitlab.com/firstruner" target="_blank" rel="noopener">Firstruner</a>
-            </div>
-            <div>Architecture SOLID • Factory/Builder Pattern • DI • RAM memory management</div>
-        </footer>
-
-    </div>
-
-    <script>
-    (() => {
-        // Scroll reveal — IntersectionObserver
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach((e) => {
-                if (e.isIntersecting) {
-                    e.target.classList.add('visible');
-                    observer.unobserve(e.target);
-                }
-            });
-        }, { threshold: 0.12 });
-
-        document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
-    })();
-    </script>
-
-</body>
-</html>
         <?php
-        return (string) ob_get_clean();
+        $mainContent = (string) ob_get_clean();
+
+        return $layout->renderPage(
+            $baseUrlPath,
+            'RGBMatch — Résultats',
+            'results',
+            $mainContent,
+            [
+                'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
+                'assets/shared/tokens.css',
+                'assets/shared/layout.css',
+                'assets/shared/origin.css',
+                'assets/shared/bars.css',
+                'assets/shared/footer.css',
+                'assets/results/winners.css',
+            ],
+            [
+                'assets/shared/reveal.js',
+            ]
+        );
     }
 }

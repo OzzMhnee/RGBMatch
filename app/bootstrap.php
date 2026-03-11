@@ -10,11 +10,10 @@
  */
 
 require_once __DIR__ . '/../loader.php';
+require_once __DIR__ . '/CSS_loader.php';
+require_once __DIR__ . '/JS_loader.php';
 
 use RGBMatch\Application\ServiceFactory;
-use RGBMatch\Interfaces\IComparisonResultBuilder;
-use RGBMatch\Interfaces\IComparisonResultRanker;
-use RGBMatch\Interfaces\IImageDataBuilder;
 
 
 /**
@@ -50,7 +49,7 @@ function app_base_url_path(): string
  * Construit les dépendances pour l'analyse/comparaison.
  *
  * @param array{sampleRate?:int, maxDimension?:int} $analyzerOptions
- * @return array{0:IImageDataBuilder, 1:IComparisonResultBuilder, 2:IComparisonResultRanker}
+ * @return array<int,mixed>
  */
 function app_create_image_services(array $analyzerOptions = []): array
 {

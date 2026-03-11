@@ -4,3 +4,5 @@
 storage/
 
 AUDIT_SCORE.md
+
+*.bak

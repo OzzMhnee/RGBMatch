@@ -16,34 +16,22 @@ namespace RGBMatch\Api;
 
 use RGBMatch\Enumerations\EImageType;
 use RGBMatch\Interfaces\IImageLoader;
+use RGBMatch\Interfaces\IImageReaderRepository;
 
 final class GdImageLoader implements IImageLoader
 {
     /**
-     * Registre type GD → callback de chargement.
-     * Ajouter un type = ajouter une entrée (OCP).
-     *
-     * @var array<int, callable(string): \GdImage|resource|false>
+     * @var IImageReaderRepository
      */
-    private static $loaders = [];
+    private $readerRepository;
 
-    /**
-     * Retourne le registre des loaders (initialisé une seule fois).
-     */
-    private static function getLoaders(): array
+    public function __construct(IImageReaderRepository $readerRepository)
     {
-        if (empty(self::$loaders)) {
-            self::$loaders = [
-                IMAGETYPE_JPEG => 'imagecreatefromjpeg',
-                IMAGETYPE_PNG  => 'imagecreatefrompng',
-                IMAGETYPE_GIF  => 'imagecreatefromgif',
-            ];
-        }
-        return self::$loaders;
+        $this->readerRepository = $readerRepository;
     }
 
     /**
-     * Charge une image selon son type (Strategy map).
+    * Charge une image selon son type via un repository de readers.
      *
      * @param string    $imagePath Chemin vers l'image
      * @param EImageType $type     Type d'image
@@ -51,14 +39,12 @@ final class GdImageLoader implements IImageLoader
      */
     public function load(string $imagePath, EImageType $type)
     {
-        $loaders = self::getLoaders();
-        $typeValue = $type->gdType();
-
-        if (!isset($loaders[$typeValue])) {
+        $reader = $this->readerRepository->findByType($type);
+        if ($reader === null) {
             return false;
         }
 
-        return ($loaders[$typeValue])($imagePath);
+        return $reader($imagePath);
     }
     
     /**
@@ -92,9 +78,9 @@ final class GdImageLoader implements IImageLoader
     public static function getImageMeta(string $path): array
     {
         $info = @getimagesize($path);
-        if (!is_array($info)) {
-            return ['w' => 0, 'h' => 0];
-        }
-        return ['w' => (int) ($info[0] ?? 0), 'h' => (int) ($info[1] ?? 0)];
+        return [
+            'w' => (int) ($info[0] ?? 0), 
+            'h' => (int) ($info[1] ?? 0)
+        ];
     }
 }

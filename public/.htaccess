@@ -1,0 +1,15 @@
+RewriteEngine On
+
+# Ne pas réécrire les fichiers et dossiers existants (assets, storage, etc.)
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Routes propres → front controller
+RewriteRule ^analyse$ index.php?page=analyse [L,QSA]
+RewriteRule ^results$ index.php?page=results [L,QSA]
+RewriteRule ^setup$ index.php?page=setup [L,QSA]
+
+# Endpoints JSON pour analyse
+RewriteRule ^analyse/run\.json$ analyse.php?run=1&format=json [L,QSA]
+RewriteRule ^analyse/setup\.json$ analyse.php?setup=1&format=json [L,QSA]

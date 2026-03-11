@@ -15,6 +15,8 @@ namespace RGBMatch\Api;
 
 use Exception;
 use RuntimeException;
+use RGBMatch\Config\DirectoryInitializer;
+use RGBMatch\IO\LockedFileSession;
 use RGBMatch\Interfaces\IApiClient;
 
 final class UnsplashApiClient implements IApiClient
@@ -28,6 +30,9 @@ final class UnsplashApiClient implements IApiClient
 
     /** @var string 'stream'|'memory' */
     private $downloadMode;
+
+    /** @var DirectoryInitializer */
+    private $directoryInitializer;
     
     public function __construct(string $accessKey, string $apiUrl, string $downloadPath)
     {
@@ -41,11 +46,10 @@ final class UnsplashApiClient implements IApiClient
         $mode = $_ENV['UNSPLASH_DOWNLOAD_MODE'] ?? getenv('UNSPLASH_DOWNLOAD_MODE') ?? 'stream';
         $mode = strtolower(trim((string) $mode));
         $this->downloadMode = in_array($mode, ['stream', 'memory'], true) ? $mode : 'stream';
+        $this->directoryInitializer = new DirectoryInitializer();
         
         // Création du dossier de téléchargement s'il n'existe pas
-        if (!is_dir($this->downloadPath)) {
-            mkdir($this->downloadPath, 0777, true);
-        }
+        $this->ensureDownloadDirectoryExists();
     }
     
     /**
@@ -84,7 +88,10 @@ final class UnsplashApiClient implements IApiClient
                     if ($imageData === null) {
                         continue;
                     }
-                    file_put_contents($filename, $imageData);
+                    if (!$this->writeBinaryFile($filename, $imageData)) {
+                        unset($imageData);
+                        continue;
+                    }
                     unset($imageData);
                 } else {
                     if (!$this->downloadToFile($imageUrl, $filename, $sslVerifyEnabled)) {
@@ -151,10 +158,11 @@ final class UnsplashApiClient implements IApiClient
                     if ($this->downloadMode === 'memory') {
                         $imageData = $this->downloadBinary($imageUrl, $sslVerifyEnabled);
                         if ($imageData !== null) {
-                            file_put_contents($filename, $imageData);
-                            $bytes = strlen($imageData);
+                            $ok = $this->writeBinaryFile($filename, $imageData);
+                            if ($ok) {
+                                $bytes = strlen($imageData);
+                            }
                             unset($imageData);
-                            $ok = true;
                         }
                     } else {
                         $ok = $this->downloadToFile($imageUrl, $filename, $sslVerifyEnabled);
@@ -303,7 +311,10 @@ final class UnsplashApiClient implements IApiClient
             if ($imageData === null) {
                 return null;
             }
-            file_put_contents($filename, $imageData);
+            if (!$this->writeBinaryFile($filename, $imageData)) {
+                unset($imageData);
+                return null;
+            }
             unset($imageData);
         } else {
             if (!$this->downloadToFile($imageUrl, $filename, $sslVerifyEnabled)) {
@@ -321,48 +332,177 @@ final class UnsplashApiClient implements IApiClient
      */
     private function downloadToFile(string $url, string $destFile, bool $sslVerifyEnabled): bool
     {
-        $fp = @fopen($destFile, 'wb');
-        if ($fp === false) {
+        if (!$this->ensureParentDirectoryExists($destFile)) {
             return false;
         }
 
-        $ch = curl_init();
-        // IMPORTANT:
-        // En environnement web (Apache/FastCGI), certaines configs font que le corps
-        // de réponse de cURL peut "fuiter" vers la sortie HTTP si on ne force pas
-        // explicitement l'écriture. On utilise donc CURLOPT_WRITEFUNCTION pour écrire
-        // dans le fichier et garantir qu'aucun octet binaire (JPEG) n'est echo.
-        curl_setopt_array($ch, [
-            CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => false,
-            CURLOPT_HEADER => false,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT => 60,
-            CURLOPT_SSL_VERIFYPEER => $sslVerifyEnabled,
-            CURLOPT_SSL_VERIFYHOST => $sslVerifyEnabled ? 2 : 0,
-            CURLOPT_HTTPHEADER => [
-                'User-Agent: MatchRGB/1.0'
-            ],
-        ]);
+        $tempFile = $destFile . '.part';
+        if (is_file($tempFile)) {
+            @unlink($tempFile);
+        }
 
-        curl_setopt($ch, CURLOPT_WRITEFUNCTION, static function ($curl, string $data) use ($fp): int {
-            $written = fwrite($fp, $data);
-            return ($written === false) ? 0 : (int) $written;
-        });
+        $session = new LockedFileSession();
+        $ch = null;
 
-        $ok = curl_exec($ch);
-        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $errNo = curl_errno($ch);
-        curl_close($ch);
-        fclose($fp);
+        try {
+            $session->openExclusiveWrite($tempFile, 'wb');
+
+            $result = $session->process(function ($fp) use ($url, $sslVerifyEnabled, &$ch): array {
+                $ch = curl_init();
+                // IMPORTANT:
+                // En environnement web (Apache/FastCGI), certaines configs font que le corps
+                // de réponse de cURL peut "fuiter" vers la sortie HTTP si on ne force pas
+                // explicitement l'écriture. On utilise donc CURLOPT_WRITEFUNCTION pour écrire
+                // dans le fichier et garantir qu'aucun octet binaire (JPEG) n'est echo.
+                curl_setopt_array($ch, [
+                    CURLOPT_URL => $url,
+                    CURLOPT_RETURNTRANSFER => false,
+                    CURLOPT_HEADER => false,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_CONNECTTIMEOUT => 10,
+                    CURLOPT_TIMEOUT => 60,
+                    CURLOPT_SSL_VERIFYPEER => $sslVerifyEnabled,
+                    CURLOPT_SSL_VERIFYHOST => $sslVerifyEnabled ? 2 : 0,
+                    CURLOPT_HTTPHEADER => [
+                        'User-Agent: MatchRGB/1.0'
+                    ],
+                ]);
+
+                curl_setopt($ch, CURLOPT_WRITEFUNCTION, static function ($curl, string $data) use ($fp): int {
+                    $written = fwrite($fp, $data);
+                    return ($written === false) ? 0 : (int) $written;
+                });
+
+                $ok = curl_exec($ch);
+
+                return [
+                    'ok' => $ok,
+                    'httpCode' => (int) curl_getinfo($ch, CURLINFO_HTTP_CODE),
+                    'errNo' => curl_errno($ch),
+                ];
+            });
+        } catch (\Throwable $error) {
+            if (is_file($tempFile)) {
+                @unlink($tempFile);
+            }
+            return false;
+        } finally {
+            if ($ch !== null) {
+                curl_close($ch);
+            }
+            $session->close();
+        }
+
+        $ok = $result['ok'];
+        $httpCode = (int) $result['httpCode'];
+        $errNo = (int) $result['errNo'];
 
         if ($ok === false || $errNo !== 0 || $httpCode < 200 || $httpCode >= 300) {
+            @unlink($tempFile);
+            return false;
+        }
+
+        return $this->finalizeDownloadedFile($tempFile, $destFile);
+    }
+
+    private function writeBinaryFile(string $destFile, string $content): bool
+    {
+        if (!$this->ensureParentDirectoryExists($destFile)) {
+            return false;
+        }
+
+        $tempFile = $destFile . '.part';
+        if (is_file($tempFile)) {
+            @unlink($tempFile);
+        }
+
+        $session = new LockedFileSession();
+
+        try {
+            $session->openExclusiveWrite($tempFile, 'wb');
+            $session->process(static function ($handle) use ($content): void {
+                fwrite($handle, $content);
+                fflush($handle);
+            });
+        } catch (\Throwable $error) {
+            if (is_file($tempFile)) {
+                @unlink($tempFile);
+            }
+            return false;
+        } finally {
+            $session->close();
+        }
+
+        return $this->finalizeDownloadedFile($tempFile, $destFile);
+    }
+
+    private function ensureDownloadDirectoryExists(): void
+    {
+        $result = $this->directoryInitializer->ensure([$this->downloadPath]);
+        if (!empty($result['failed']) || !is_dir($this->downloadPath) || !is_writable($this->downloadPath)) {
+            throw new RuntimeException('Dossier de telechargement indisponible: ' . $this->downloadPath);
+        }
+    }
+
+    private function ensureParentDirectoryExists(string $filePath): bool
+    {
+        $dir = dirname($filePath);
+        $result = $this->directoryInitializer->ensure([$dir]);
+
+        return empty($result['failed']) && is_dir($dir) && is_writable($dir);
+    }
+
+    private function finalizeDownloadedFile(string $tempFile, string $destFile): bool
+    {
+        if (!$this->isValidDownloadedImage($tempFile)) {
+            @unlink($tempFile);
+            return false;
+        }
+
+        if (!$this->ensureParentDirectoryExists($destFile)) {
+            @unlink($tempFile);
+            return false;
+        }
+
+        if (is_file($destFile)) {
+            @unlink($destFile);
+        }
+
+        if (!@rename($tempFile, $destFile)) {
+            if (!@copy($tempFile, $destFile)) {
+                @unlink($tempFile);
+                return false;
+            }
+            @unlink($tempFile);
+        }
+
+        if (!$this->isValidDownloadedImage($destFile)) {
             @unlink($destFile);
             return false;
         }
 
         return true;
+    }
+
+    private function isValidDownloadedImage(string $path): bool
+    {
+        if (!is_file($path) || !is_readable($path)) {
+            return false;
+        }
+
+        $size = (int) @filesize($path);
+        if ($size <= 1024) {
+            return false;
+        }
+
+        $info = @getimagesize($path);
+        if (!is_array($info)) {
+            return false;
+        }
+
+        return (int) ($info[0] ?? 0) > 0
+            && (int) ($info[1] ?? 0) > 0
+            && in_array((int) ($info[2] ?? 0), [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF], true);
     }
 
     /**

@@ -16,14 +16,18 @@
 
 namespace RGBMatch\Application;
 
+use RGBMatch\Api\GdImageReaderRepository;
 use RGBMatch\Api\GdImageLoader;
 use RGBMatch\Api\RgbImageAnalyzer;
 use RGBMatch\Builders\ComparisonResultBuilder;
 use RGBMatch\Builders\ImageDataBuilder;
+use RGBMatch\IO\LockedJsonFileStore;
 use RGBMatch\Interfaces\IImageAnalyzer;
-use RGBMatch\Interfaces\IComparisonResultBuilder;
-use RGBMatch\Interfaces\IComparisonResultRanker;
 use RGBMatch\Interfaces\IImageDataBuilder;
+use RGBMatch\Interfaces\IImageLoader;
+use RGBMatch\Interfaces\IImageReaderRepository;
+use RGBMatch\Interfaces\IJsonFileStore;
+use RGBMatch\Interfaces\IMeasurementWorkerRunner;
 
 final class ServiceFactory
 {
@@ -37,9 +41,27 @@ final class ServiceFactory
      */
     public static function createImageServices(array $analyzerOptions = []): array
     {
-        $imageLoader = new GdImageLoader();
+        $imageLoader = self::createImageLoader();
         $analyzer = new RgbImageAnalyzer($imageLoader, $analyzerOptions);
         return self::createImageServicesFromAnalyzer($analyzer);
+    }
+
+    public static function createImageLoader(?IImageReaderRepository $readerRepository = null): IImageLoader
+    {
+        $readerRepository = $readerRepository ?: new GdImageReaderRepository();
+
+        return new GdImageLoader($readerRepository);
+    }
+
+    public static function createMeasurementPayloadProvider(
+        string $projectRoot,
+        ?IMeasurementWorkerRunner $workerRunner = null,
+        ?IJsonFileStore $jsonStore = null
+    ): IsolatedMeasurementPayloadProvider {
+        $workerRunner = $workerRunner ?: new LocalHttpMeasurementWorkerRunner();
+        $jsonStore = $jsonStore ?: new LockedJsonFileStore();
+
+        return new IsolatedMeasurementPayloadProvider($projectRoot, $workerRunner, $jsonStore);
     }
 
     /**

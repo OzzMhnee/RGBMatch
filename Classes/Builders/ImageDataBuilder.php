@@ -42,7 +42,7 @@ final class ImageDataBuilder
     {
         // Vérification de l'existence
         if (!file_exists($imagePath)) {
-            throw new InvalidArgumentException("L'image n'existe pas : {$imagePath}");
+            throw new \InvalidArgumentException("L'image n'existe pas : {$imagePath}");
         }
         
         // Détection du type

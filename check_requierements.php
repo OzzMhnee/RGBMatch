@@ -2,8 +2,6 @@
 
 // Script de vérification des prérequis pour le projet*
 
-// TODO : Ajouter des couleurs pour les messages d'erreur et de succès
-
 // Initialisation d'un tableau pour stocker les erreurs rencontrées lors des vérifications
 $errors = [];
 

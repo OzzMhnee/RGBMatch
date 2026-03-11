@@ -45,6 +45,7 @@ try {
     
     // Initialisation du client API
     $apiClient = new UnsplashApiClient($accessKey, $apiUrl, $testDir);
+    $setupService = new \RGBMatch\Application\SetupService($apiClient, $testDir, $originPath);
 
     $downloadMode = $_ENV['UNSPLASH_DOWNLOAD_MODE'] ?? getenv('UNSPLASH_DOWNLOAD_MODE') ?? 'stream';
     $downloadMode = strtolower(trim((string) $downloadMode));
@@ -92,25 +93,12 @@ try {
         $query = '';
     }
     
-    // Téléchargement de l'image d'origine (random)
     echo "\n\n...Téléchargement de l'image d'origine (random)...\n";
-    $originPaths = $apiClient->downloadRandomImagesWithProgress(1, $query, "Chargement origine", true);
-    if (empty($originPaths)) {
-        throw new RuntimeException("Impossible de télécharger l'image d'origine");
-    }
-    rename($originPaths[0], $originPath);
-    echo "[OK] Image d'origine sauvegardée\n\n";
-    
-    // Téléchargement des images de test (random)
     echo "...Téléchargement de {$count} image(s) de test random" . ($query ? " (thème: {$query})" : "") . "...\n";
-    $downloadedCount = 0;
-    try {
-        $paths = $apiClient->downloadRandomImagesWithProgress($count, $query, "Chargement images test", true);
-        $downloadedCount = is_array($paths) ? count($paths) : 0;
-        echo "[OK] {$downloadedCount} image(s) de test téléchargée(s)\n";
-    } catch (Exception $e) {
-        echo "    ⚠️  Erreur: {$e->getMessage()}\n";
-    }
+    $setupResult = $setupService->run($count, $query, true);
+    $downloadedCount = (int) $setupResult['downloadedTests'];
+    echo "[OK] Image d'origine sauvegardée\n\n";
+    echo "[OK] {$downloadedCount} image(s) de test téléchargée(s)\n";
     
     echo "\n[INFO] Setup terminé!\n";
     echo " {$downloadedCount} images téléchargées\n";

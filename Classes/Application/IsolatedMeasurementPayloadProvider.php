@@ -16,8 +16,9 @@
 namespace RGBMatch\Application;
 
 use RuntimeException;
-use RGBMatch\Api\GdImageLoader;
 use RGBMatch\Api\RgbImageAnalyzer;
+use RGBMatch\Interfaces\IJsonFileStore;
+use RGBMatch\Interfaces\IMeasurementWorkerRunner;
 use RGBMatch\Singletons\ConfigurationManager;
 
 final class IsolatedMeasurementPayloadProvider
@@ -25,15 +26,23 @@ final class IsolatedMeasurementPayloadProvider
     /** @var string */
     private $projectRoot;
 
-    public function __construct(string $projectRoot)
+    /** @var IMeasurementWorkerRunner */
+    private $workerRunner;
+
+    /** @var IJsonFileStore */
+    private $jsonStore;
+
+    public function __construct(string $projectRoot, IMeasurementWorkerRunner $workerRunner, IJsonFileStore $jsonStore)
     {
         $this->projectRoot = rtrim($projectRoot, DIRECTORY_SEPARATOR);
+        $this->workerRunner = $workerRunner;
+        $this->jsonStore = $jsonStore;
     }
 
     /**
      * Retourne le payload de mesures partagé entre CLI et web.
      * Si le cache courant est valide, il est réutilisé ; sinon un worker
-     * PHP isolé régénère le payload.
+        * HTTP local isolé régénère le payload.
      *
      * @param array{sampleRate?:int,maxDimension?:int,permCount?:int} $options
      * @return array<string,mixed>
@@ -45,8 +54,7 @@ final class IsolatedMeasurementPayloadProvider
         $cacheFile = $this->getCacheFile();
 
         if (is_file($cacheFile)) {
-            $json = file_get_contents($cacheFile);
-            $cached = is_string($json) ? json_decode($json, true) : null;
+            $cached = $this->jsonStore->read($cacheFile);
             if (
                 is_array($cached)
                 && isset($cached['meta']['signature'])
@@ -59,34 +67,33 @@ final class IsolatedMeasurementPayloadProvider
         }
 
         try {
-            $payload = $this->runWorkerAndDecode();
+            $payload = $this->workerRunner->run($this->projectRoot, $resolved);
         } catch (\Throwable $workerError) {
-            // Fallback robuste pour le web : certains environnements Apache/WAMP
-            // n'autorisent pas exec(), ou exposent un PHP_BINARY non exécutable.
-            // On rebascule alors sur le calcul in-process plutôt que de renvoyer HTTP 500.
+            // Fallback robuste : si le worker HTTP local n'est pas disponible,
+            // on rebascule sur le calcul in-process plutôt que de casser CLI/web.
             $payload = $this->buildPayload($resolved);
         }
         if (!isset($payload['meta']['signature']) || (string) $payload['meta']['signature'] !== $signature) {
             throw new RuntimeException('Le worker a retourné une signature de mesures inattendue.');
         }
 
-        $encoded = json_encode(
-            ['meta' => ['signature' => $signature], 'payload' => $payload],
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT
-        );
-        if (!is_string($encoded)) {
-            throw new RuntimeException('Impossible de sérialiser le cache de mesures.');
-        }
         // Le cache est un bonus de performance. Un problème de droits d'écriture
         // ne doit jamais casser l'endpoint web.
-        @file_put_contents($cacheFile, $encoded);
+        try {
+            $this->jsonStore->write($cacheFile, [
+                'meta' => ['signature' => $signature],
+                'payload' => $payload,
+            ]);
+        } catch (\Throwable $error) {
+            // Le cache reste opportuniste : un echec d'ecriture n'est pas bloquant.
+        }
 
         return $payload;
     }
 
     /**
      * Construit le payload complet dans le process courant.
-     * Utilisé uniquement par le worker isolé.
+    * Utilisé uniquement par le worker HTTP local ou le fallback in-process.
      *
      * @param array{sampleRate?:int,maxDimension?:int,permCount?:int} $options
      * @return array<string,mixed>
@@ -122,7 +129,7 @@ final class IsolatedMeasurementPayloadProvider
         $maxAbsAlloc = 1;
         $maxAbsPeak = 1;
 
-        $imageLoader = new GdImageLoader();
+        $imageLoader = ServiceFactory::createImageLoader();
         $analyzer = new RgbImageAnalyzer($imageLoader, [
             'sampleRate' => $sampleRate,
             'maxDimension' => $maxDimension,
@@ -220,84 +227,6 @@ final class IsolatedMeasurementPayloadProvider
     private function getCacheFile(): string
     {
         return $this->projectRoot . '/storage/results/pipeline-measurements.json';
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function runWorkerAndDecode(): array
-    {
-        if (!function_exists('exec')) {
-            throw new RuntimeException('exec() indisponible pour lancer le worker de mesures.');
-        }
-
-        $php = PHP_BINARY;
-        if (!is_string($php) || $php === '' || !is_file($php)) {
-            $php = $this->guessPhpBinary();
-        }
-        if (!is_string($php) || $php === '' || !is_file($php)) {
-            throw new RuntimeException('PHP executable introuvable pour lancer le worker de mesures.');
-        }
-
-        $worker = $this->projectRoot . '/app/measurement_worker.php';
-        if (!is_file($worker)) {
-            throw new RuntimeException('Worker de mesures introuvable.');
-        }
-
-        $command = $this->quoteArg($php) . ' ' . $this->quoteArg($worker);
-        $output = [];
-        $exitCode = 0;
-        exec($command, $output, $exitCode);
-
-        if ($exitCode !== 0) {
-            throw new RuntimeException('Le worker de mesures a échoué : ' . implode("\n", $output));
-        }
-
-        $json = implode("\n", $output);
-        $decoded = json_decode($json, true);
-        if (!is_array($decoded)) {
-            throw new RuntimeException('JSON invalide retourné par le worker de mesures.');
-        }
-
-        return $decoded;
-    }
-
-    /**
-     * Tente de retrouver un exécutable PHP utilisable quand PHP_BINARY
-     * pointe vers une DLL Apache ou une valeur non exécutable.
-     */
-    private function guessPhpBinary(): string
-    {
-        $candidates = [];
-
-        if (defined('PHP_BINDIR')) {
-            $candidates[] = rtrim((string) PHP_BINDIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'php.exe';
-            $candidates[] = rtrim((string) PHP_BINDIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'php';
-        }
-
-        if (isset($_SERVER['PATH']) && is_string($_SERVER['PATH'])) {
-            foreach (explode(PATH_SEPARATOR, $_SERVER['PATH']) as $dir) {
-                $dir = trim($dir);
-                if ($dir === '') {
-                    continue;
-                }
-                $candidates[] = rtrim($dir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'php.exe';
-                $candidates[] = rtrim($dir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'php';
-            }
-        }
-
-        foreach ($candidates as $candidate) {
-            if (is_file($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return '';
-    }
-
-    private function quoteArg(string $value): string
-    {
-        return '"' . str_replace('"', '\\"', $value) . '"';
     }
 
     /**

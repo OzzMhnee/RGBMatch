@@ -21,13 +21,17 @@ final class ConsoleRenderer
     public static function signatureArt(): string
     {
         // Signature ASCII simple (évite les dépendances, reste lisible en monospace ~80 colonnes).
-        return implode("\n", [
-            '   OOOOO  zzzzzzz  zzzzzzz  M   M  H   H  N   N  EEEEE  EEEEE',
-            '   O   O      zz       zz   MM MM  H   H  NN  N  E      E',
-            '   O   O     zz       zz    M M M  HHHHH  N N N  EEEE   EEEE',
-            '   O   O    zz       zz     M   M  H   H  N  NN  E      E',
-            '   OOOOO  zzzzzzz  zzzzzzz  M   M  H   H  N   N  EEEEE  EEEEE',
-        ]) . "\n";
+        return <<<'ASCII'
+      ______   ________  ________   __       __  __    __  __    __  ________  ________ 
+     /      \ /        |/        | |  \     /  \|  \  |  \|  \  |  \|        \|        \
+    /$$$$$$  |$$$$$$$$/ $$$$$$$$/  | $$\   /  $$| $$  | $$| $$\ | $$| $$$$$$$$| $$$$$$$$
+    $$ |  $$ |    /$$/      /$$/   | $$$\ /  $$$| $$__| $$| $$$\| $$| $$__    | $$__    
+    $$ |  $$ |   /$$/      /$$/    | $$$$\  $$$$| $$    $$| $$$$\ $$| $$  \   | $$  \   
+    $$ |  $$ |  /$$/      /$$/     | $$\$$ $$ $$| $$$$$$$$| $$\$$ $$| $$$$$   | $$$$$   
+    $$ \__$$ | /$$/____  /$$/____  | $$ \$$$| $$| $$  | $$| $$ \$$$$| $$_____ | $$_____ 
+    $$    $$/ /$$      |/$$     /  | $$  \$ | $$| $$  | $$| $$  \$$$| $$     \| $$     \
+    $$$$$$/  $$$$$$$$/ $$$$$$$$/    \$$      \$$ \$$   \$$ \$$   \$$ \$$$$$$$$ \$$$$$$$$
+ASCII;
     }
 
     /**
@@ -42,7 +46,7 @@ final class ConsoleRenderer
 
         // Fallback UTF-8 sans mbstring : compte les caractères Unicode.
         // Suffisant ici (accents, symboles, flèches) pour conserver l'alignement.
-        if (preg_match_all('/./u', $value, $m) === 1) {
+        if (preg_match_all('/./u', $value, $m) !== false) {
             return count($m[0]);
         }
 
@@ -73,7 +77,7 @@ final class ConsoleRenderer
         }
 
         // Fallback UTF-8 : tronque en caractères si possible.
-        if (preg_match_all('/./u', $value, $m) === 1) {
+        if (preg_match_all('/./u', $value, $m) !== false) {
             $chars = $m[0];
             $take = max(0, $width - 1);
             return implode('', array_slice($chars, 0, $take)) . '…';
@@ -83,12 +87,282 @@ final class ConsoleRenderer
     }
 
     /**
+     * Coupe une chaîne à une largeur d'affichage exacte, sans suffixe.
+     */
+    private static function sliceByWidth(string $value, int $width): string
+    {
+        if ($width <= 0 || $value === '') {
+            return '';
+        }
+
+        if (self::strWidth($value) <= $width) {
+            return $value;
+        }
+
+        if (function_exists('mb_strimwidth')) {
+            return (string) mb_strimwidth($value, 0, $width, '', 'UTF-8');
+        }
+
+        if (preg_match_all('/./u', $value, $m) !== false) {
+            $chars = $m[0];
+            $buffer = '';
+            foreach ($chars as $char) {
+                if (self::strWidth($buffer . $char) > $width) {
+                    break;
+                }
+                $buffer .= $char;
+            }
+
+            return $buffer;
+        }
+
+        return substr($value, 0, $width);
+    }
+
+    /**
+     * Version multioctet de str_pad basée sur la largeur d'affichage réelle.
+     */
+    private static function mbStrPad(
+        string $text,
+        int $padLength,
+        string $padString = ' ',
+        int $padType = STR_PAD_RIGHT
+    ): string {
+        $textWidth = self::strWidth($text);
+        $padNeeded = $padLength - $textWidth;
+        if ($padNeeded <= 0) {
+            return $text;
+        }
+
+        if ($padString === '') {
+            $padString = ' ';
+        }
+
+        $buildPad = static function (int $targetWidth) use ($padString): string {
+            if ($targetWidth <= 0) {
+                return '';
+            }
+
+            $pad = '';
+            while (ConsoleRenderer::strWidth($pad) < $targetWidth) {
+                $pad .= $padString;
+            }
+
+            return ConsoleRenderer::sliceByWidth($pad, $targetWidth);
+        };
+
+        switch ($padType) {
+            case STR_PAD_LEFT:
+                return $buildPad($padNeeded) . $text;
+
+            case STR_PAD_BOTH:
+                $left = intdiv($padNeeded, 2);
+                $right = $padNeeded - $left;
+                return $buildPad($left) . $text . $buildPad($right);
+
+            case STR_PAD_RIGHT:
+            default:
+                return $text . $buildPad($padNeeded);
+        }
+    }
+
+    /**
      * Pad à droite (alignement gauche) en fonction de la largeur d'affichage.
      */
     private static function padRight(string $value, int $width): string
     {
-        $pad = max(0, $width - self::strWidth($value));
-        return $value . str_repeat(' ', $pad);
+        return self::mbStrPad($value, $width, ' ', STR_PAD_RIGHT);
+    }
+
+    private static function padCenter(string $value, int $width): string
+    {
+        return self::mbStrPad($value, $width, ' ', STR_PAD_BOTH);
+    }
+
+    private static function renderBorderLine(string $indent, array $widths, string $left, string $mid, string $right): string
+    {
+        $parts = [];
+        foreach ($widths as $width) {
+            $parts[] = str_repeat('─', $width + 2);
+        }
+
+        return $indent . $left . implode($mid, $parts) . $right . "\n";
+    }
+
+    private static function renderBoxLine(string $indent, int $innerWidth, string $text = '', string $alignment = 'left'): string
+    {
+        $content = $alignment === 'center'
+            ? self::padCenter($text, $innerWidth)
+            : self::padRight($text, $innerWidth);
+
+        return $indent . '│ ' . $content . ' │' . "\n";
+    }
+
+    /**
+     * @param array<int, string> $cells
+     * @param array<int, string>|null $alignments
+     */
+    private static function renderRow(string $indent, array $cells, array $widths, string $alignment = 'left', ?array $alignments = null): string
+    {
+        $line = $indent . '│';
+        foreach ($cells as $i => $cell) {
+            $value = (string) $cell;
+            $cellAlignment = (string) ($alignments[$i] ?? $alignment);
+
+            if ($cellAlignment === 'center') {
+                $value = self::padCenter($value, $widths[$i]);
+            } else {
+                $value = self::padRight($value, $widths[$i]);
+            }
+
+            $line .= ' ' . $value . ' │';
+        }
+
+        return $line . "\n";
+    }
+
+    /**
+     * Découpe une cellule en plusieurs lignes sans casser l'alignement UTF-8.
+     *
+     * @return array<int, string>
+     */
+    private static function wrapCell(string $value, int $width): array
+    {
+        if ($width <= 0) {
+            return [''];
+        }
+
+        $value = trim($value);
+        if ($value === '') {
+            return [''];
+        }
+
+        $paragraphs = preg_split('/\R/u', $value) ?: [$value];
+        $lines = [];
+
+        foreach ($paragraphs as $paragraph) {
+            $paragraph = trim((string) $paragraph);
+            if ($paragraph === '') {
+                $lines[] = '';
+                continue;
+            }
+
+            $tokens = preg_split('/\s+/u', $paragraph) ?: [$paragraph];
+            $currentLine = '';
+
+            foreach ($tokens as $token) {
+                $token = (string) $token;
+                if ($token === '') {
+                    continue;
+                }
+
+                if (self::strWidth($token) > $width) {
+                    if ($currentLine !== '') {
+                        $lines[] = $currentLine;
+                        $currentLine = '';
+                    }
+
+                    $remaining = $token;
+                    while ($remaining !== '') {
+                        $chunk = self::sliceByWidth($remaining, $width);
+                        if ($chunk === '') {
+                            break;
+                        }
+
+                        $lines[] = $chunk;
+                        $remaining = trim((string) preg_replace('/^' . preg_quote($chunk, '/') . '/u', '', $remaining, 1));
+                    }
+
+                    continue;
+                }
+
+                $candidate = $currentLine === '' ? $token : $currentLine . ' ' . $token;
+                if (self::strWidth($candidate) <= $width) {
+                    $currentLine = $candidate;
+                    continue;
+                }
+
+                $lines[] = $currentLine;
+                $currentLine = $token;
+            }
+
+            if ($currentLine !== '') {
+                $lines[] = $currentLine;
+            }
+        }
+
+        return $lines === [] ? [''] : $lines;
+    }
+
+    /**
+     * @param array<int, string> $headers
+     * @param array<int, array<int, string>> $rows
+    * @param array{indent?:string,minWidths?:array<int,int>,maxWidths?:array<int,int>,headerAlign?:string,columnAlign?:array<int,string>} $options
+     */
+    public function printTable(array $headers, array $rows, array $options = []): void
+    {
+        $columnCount = count($headers);
+        if ($columnCount === 0) {
+            return;
+        }
+
+        $indent = (string) ($options['indent'] ?? '');
+        $minWidths = (array) ($options['minWidths'] ?? []);
+        $maxWidths = (array) ($options['maxWidths'] ?? []);
+        $headerAlign = (string) ($options['headerAlign'] ?? 'center');
+        $columnAlign = (array) ($options['columnAlign'] ?? []);
+        $widths = [];
+
+        for ($i = 0; $i < $columnCount; $i++) {
+            $header = (string) ($headers[$i] ?? '');
+            $width = max((int) ($minWidths[$i] ?? 1), self::strWidth($header));
+            $maxWidth = isset($maxWidths[$i]) ? (int) $maxWidths[$i] : 0;
+            if ($maxWidth > 0) {
+                $width = min($width, $maxWidth);
+            }
+            $widths[$i] = $width;
+        }
+
+        foreach ($rows as $row) {
+            for ($i = 0; $i < $columnCount; $i++) {
+                $cell = (string) ($row[$i] ?? '');
+                $cellWidth = self::strWidth($cell);
+                $maxWidth = isset($maxWidths[$i]) ? (int) $maxWidths[$i] : 0;
+                if ($maxWidth > 0) {
+                    $cellWidth = min($cellWidth, $maxWidth);
+                }
+                $widths[$i] = max($widths[$i], $cellWidth, (int) ($minWidths[$i] ?? 1));
+            }
+        }
+
+        echo self::renderBorderLine($indent, $widths, '┌', '┬', '┐');
+
+        $headerCells = [];
+        foreach ($headers as $i => $header) {
+            $headerCells[$i] = self::fit((string) $header, $widths[$i]);
+        }
+        echo self::renderRow($indent, $headerCells, $widths, $headerAlign);
+        echo self::renderBorderLine($indent, $widths, '├', '┼', '┤');
+
+        foreach ($rows as $row) {
+            $wrappedCells = [];
+            $rowHeight = 1;
+
+            for ($i = 0; $i < $columnCount; $i++) {
+                $wrappedCells[$i] = self::wrapCell((string) ($row[$i] ?? ''), $widths[$i]);
+                $rowHeight = max($rowHeight, count($wrappedCells[$i]));
+            }
+
+            for ($lineIndex = 0; $lineIndex < $rowHeight; $lineIndex++) {
+                $cells = [];
+                for ($i = 0; $i < $columnCount; $i++) {
+                    $cells[$i] = (string) ($wrappedCells[$i][$lineIndex] ?? '');
+                }
+                echo self::renderRow($indent, $cells, $widths, 'left', $columnAlign);
+            }
+        }
+
+        echo self::renderBorderLine($indent, $widths, '└', '┴', '┘');
     }
 
     public function banner(): void
@@ -110,9 +384,57 @@ final class ConsoleRenderer
         }
 
         echo "\n";
-        echo "╔" . str_repeat('═', 58) . "╗\n";
-        echo '║ ' . self::padRight($title, 58) . " ║\n";
-        echo "╚" . str_repeat('═', 58) . "╝\n";
+        echo "╔" . str_repeat('═', 60) . "╗\n";
+        echo '║ ' . self::padCenter($title, 58) . " ║\n";
+        echo "╚" . str_repeat('═', 60) . "╝\n";
+    }
+
+    /**
+     * @param array<int, string> $lines
+     * @param array{indent?:string,width?:int,title?:string,titleAlign?:string} $options
+     */
+    public function printTextBox(array $lines, array $options = []): void
+    {
+        $indent = (string) ($options['indent'] ?? '');
+        $requestedWidth = (int) ($options['width'] ?? 0);
+        $title = trim((string) ($options['title'] ?? ''));
+        $titleAlign = (string) ($options['titleAlign'] ?? 'left');
+
+        $innerWidth = max(1, $requestedWidth);
+        // En mode auto-largeur (aucun requestedWidth), on grandit jusqu'à la ligne la plus large.
+        // En mode largeur fixée, le contenu débordant est renvoyé à la ligne via wrapCell.
+        if ($requestedWidth <= 0) {
+            foreach ($lines as $line) {
+                $innerWidth = max($innerWidth, self::strWidth((string) $line));
+            }
+        }
+        if ($title !== '') {
+            $innerWidth = max($innerWidth, self::strWidth($title) + 2);
+        }
+
+        if ($title !== '') {
+            $titleText = self::fit($title, max(1, $innerWidth));
+            $available = max(0, $innerWidth + 2 - self::strWidth($titleText) - 2);
+            if ($titleAlign === 'center') {
+                $left = intdiv($available, 2);
+                $right = $available - $left;
+            } else {
+                $left = 1;
+                $right = max(0, $available - 1);
+            }
+
+            echo $indent . '┌' . str_repeat('─', $left) . ' ' . $titleText . ' ' . str_repeat('─', $right) . '┐' . "\n";
+        } else {
+            echo $indent . '┌' . str_repeat('─', $innerWidth + 2) . '┐' . "\n";
+        }
+
+        foreach ($lines as $line) {
+            foreach (self::wrapCell((string) $line, $innerWidth) as $wrappedLine) {
+                echo self::renderBoxLine($indent, $innerWidth, $wrappedLine);
+            }
+        }
+
+        echo $indent . '└' . str_repeat('─', $innerWidth + 2) . '┘' . "\n";
     }
 
     public function formatDuration(float $seconds): string
@@ -207,46 +529,23 @@ final class ConsoleRenderer
         echo sprintf("%s: %s\n", $contextLabel, $contextValue);
 
         $headers = ['Sous-étape', 'Temps', 'ΔRAM (used)', 'Fonction', 'Ce que ça fait'];
-        $keys    = ['step', 'time', 'ram', 'note', 'explain'];
-        $minW    = [11, 6, 11, 16, 18];
-
-        // Auto-dimensionnement depuis les en-têtes et les données.
-        $w = $minW;
-        foreach ($headers as $i => $h) {
-            $w[$i] = max($w[$i], self::strWidth($h));
-        }
-        foreach ($rows as $r) {
-            foreach ($keys as $i => $k) {
-                $w[$i] = max($w[$i], self::strWidth((string) ($r[$k] ?? '')));
-            }
+        $tableRows = [];
+        foreach ($rows as $row) {
+            $tableRows[] = [
+                (string) ($row['step'] ?? ''),
+                (string) ($row['time'] ?? ''),
+                (string) ($row['ram'] ?? ''),
+                (string) ($row['note'] ?? ''),
+                (string) ($row['explain'] ?? ''),
+            ];
         }
 
-        $makeLine = static function (string $l, string $m, string $r) use ($w): string {
-            $parts = [];
-            foreach ($w as $cw) {
-                $parts[] = str_repeat('─', $cw + 2);
-            }
-            return $l . implode($m, $parts) . $r . "\n";
-        };
+        $this->printTable($headers, $tableRows, [
+            'minWidths' => [11, 6, 11, 16, 18],
+            'maxWidths' => [20, 10, 14, 26, 44],
+            'columnAlign' => ['left', 'center', 'center', 'left', 'left'],
+        ]);
 
-        echo $makeLine('┌', '┬', '┐');
-        echo '│';
-        foreach ($headers as $i => $h) {
-            echo ' ' . self::padRight(self::fit($h, $w[$i]), $w[$i]) . ' │';
-        }
-        echo "\n";
-        echo $makeLine('├', '┼', '┤');
-
-        foreach ($rows as $r) {
-            echo '│';
-            foreach ($keys as $i => $k) {
-                $cell = self::fit((string) ($r[$k] ?? ''), $w[$i]);
-                echo ' ' . self::padRight($cell, $w[$i]) . ' │';
-            }
-            echo "\n";
-        }
-
-        echo $makeLine('└', '┴', '┘');
         if ($afterNote !== '') {
             echo $afterNote . "\n";
         }
@@ -304,7 +603,6 @@ final class ConsoleRenderer
     public function printRamTable(array $steps): void
     {
         $headers = ['Étape', 'Δused', 'Δalloc', 'Δpic', 'Cumulé used', 'Temps', 'Explication'];
-        $maxExplain = 64;
 
         $fmtSigned = static function (int $b): string {
             if ($b === 0) {
@@ -329,47 +627,10 @@ final class ConsoleRenderer
             ];
         }
 
-        // Largeurs minimales par colonne.
-        $w = [14, 8, 8, 8, 11, 6, $maxExplain];
-
-        // Auto-dimensionnement depuis les en-têtes et les données.
-        foreach ($headers as $i => $h) {
-            $w[$i] = max($w[$i], self::strWidth($h));
-        }
-        foreach ($rows as $r) {
-            foreach ($r as $i => $cell) {
-                $cellW = self::strWidth($cell);
-                if ($i === 6) {
-                    $cellW = min($cellW, $maxExplain);
-                }
-                $w[$i] = max($w[$i], $cellW);
-            }
-        }
-
-        // Génère une ligne de séparation avec des box-drawing chars.
-        $makeLine = static function (string $l, string $m, string $r) use ($w): string {
-            $parts = [];
-            foreach ($w as $cw) {
-                $parts[] = str_repeat('─', $cw + 2);
-            }
-            return $l . implode($m, $parts) . $r . "\n";
-        };
-
-        echo $makeLine('┌', '┬', '┐');
-        echo '│';
-        foreach ($headers as $i => $h) {
-            echo ' ' . self::padRight(self::fit($h, $w[$i]), $w[$i]) . ' │';
-        }
-        echo "\n";
-        echo $makeLine('├', '┼', '┤');
-
-        foreach ($rows as $r) {
-            echo '│';
-            foreach ($r as $i => $cell) {
-                echo ' ' . self::padRight(self::fit($cell, $w[$i]), $w[$i]) . ' │';
-            }
-            echo "\n";
-        }
-        echo $makeLine('└', '┴', '┘');
+        $this->printTable($headers, $rows, [
+            'minWidths' => [14, 8, 8, 8, 11, 6, 18],
+            'maxWidths' => [22, 12, 12, 12, 14, 10, 64],
+            'columnAlign' => ['left', 'center', 'center', 'center', 'center', 'center', 'left'],
+        ]);
     }
 }

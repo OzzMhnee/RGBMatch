@@ -29,3 +29,11 @@
   margin: 0 8px;
   color: var(--text-dim);
 }
+
+/* ── Ligne copyright ─────────────────────────────────────── */
+.footer-copy {
+  margin-top: 4px;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  opacity: 0.8;
+}
